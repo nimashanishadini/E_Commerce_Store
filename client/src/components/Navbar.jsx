@@ -18,7 +18,7 @@ const ProductCard = ({ product }) => {
   }
 
   return (
-    <div className="card group hover:shadow-lg transition-shadow duration-300">
+    <div className="card group hover:shadow-lg transition-shadow duration-400">
       <Link to={`/products/${product._id}`}>
         <div className="relative overflow-hidden">
           <img
