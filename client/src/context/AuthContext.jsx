@@ -1,125 +1,75 @@
-"use client"
-
-import { createContext, useContext, useReducer, useEffect } from "react"
-import axios from "axios"
+// src/context/AuthContext.jsx
+import { createContext, useState, useContext, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import axios from 'axios'
 
 const AuthContext = createContext()
 
-const authReducer = (state, action) => {
-  switch (action.type) {
-    case "LOGIN_SUCCESS":
-      return {
-        ...state,
-        user: action.payload,
-        isAuthenticated: true,
-        loading: false,
-      }
-    case "LOGOUT":
-      return {
-        ...state,
-        user: null,
-        isAuthenticated: false,
-        loading: false,
-      }
-    case "SET_LOADING":
-      return {
-        ...state,
-        loading: action.payload,
-      }
-    default:
-      return state
-  }
-}
-
 export const AuthProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(authReducer, {
-    user: null,
-    isAuthenticated: false,
-    loading: true,
-  })
+  const [user, setUser] = useState(null)
+  const [token, setToken] = useState(localStorage.getItem('token') || null)
+  const navigate = useNavigate()
 
+  // Set axios default baseURL
+  axios.defaults.baseURL = 'http://localhost:5000/api' // ✅ Update this to match your backend port
+
+  // Update Axios Authorization header when token changes
   useEffect(() => {
-    const token = localStorage.getItem("token")
     if (token) {
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`
-      // Verify token validity
-      fetchUser()
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     } else {
-      dispatch({ type: "SET_LOADING", payload: false })
+      delete axios.defaults.headers.common['Authorization']
     }
-  }, [])
+  }, [token])
 
-  const fetchUser = async () => {
-    try {
-      const response = await axios.get("/api/auth/profile")
-      dispatch({ type: "LOGIN_SUCCESS", payload: response.data })
-    } catch (error) {
-      localStorage.removeItem("token")
-      delete axios.defaults.headers.common["Authorization"]
-      dispatch({ type: "SET_LOADING", payload: false })
-    }
-  }
-
+  // Login Function
   const login = async (email, password) => {
     try {
-      const response = await axios.post("/api/auth/login", { email, password })
-      const { token, ...user } = response.data
+      const response = await axios.post('/auth/login', { email, password })
+      const { token, user } = response.data // ✅ Must match backend structure
 
-      localStorage.setItem("token", token)
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`
+      localStorage.setItem('token', token)
+      setToken(token)
+      setUser(user)
 
-      dispatch({ type: "LOGIN_SUCCESS", payload: user })
       return { success: true }
     } catch (error) {
       return {
         success: false,
-        message: error.response?.data?.message || "Login failed",
+        message: error.response?.data?.message || 'Login failed',
       }
     }
   }
 
-  const register = async (name, email, password) => {
-    try {
-      const response = await axios.post("/api/auth/register", { name, email, password })
-      const { token, ...user } = response.data
-
-      localStorage.setItem("token", token)
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`
-
-      dispatch({ type: "LOGIN_SUCCESS", payload: user })
-      return { success: true }
-    } catch (error) {
-      return {
-        success: false,
-        message: error.response?.data?.message || "Registration failed",
-      }
-    }
-  }
-
+  // Logout Function
   const logout = () => {
-    localStorage.removeItem("token")
-    delete axios.defaults.headers.common["Authorization"]
-    dispatch({ type: "LOGOUT" })
+    localStorage.removeItem('token')
+    setToken(null)
+    setUser(null)
+    navigate('/login')
   }
+
+  // Verify user session on app load
+  useEffect(() => {
+    const verifyAuth = async () => {
+      if (!token) return
+
+      try {
+        const response = await axios.get('/auth/profile')
+        setUser(response.data)
+      } catch (err) {
+        logout()
+      }
+    }
+
+    verifyAuth()
+  }, [token])
 
   return (
-    <AuthContext.Provider
-      value={{
-        ...state,
-        login,
-        register,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={{ user, token, login, logout }}>
       {children}
     </AuthContext.Provider>
   )
 }
 
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider")
-  }
-  return context
-}
+export const useAuth = () => useContext(AuthContext)

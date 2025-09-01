@@ -8,6 +8,9 @@ import toast from "react-hot-toast"
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart()
 
+  // ✅ Fix: Return nothing if product is undefined
+  if (!product) return null
+
   const handleAddToCart = (e) => {
     e.preventDefault()
     addToCart(product)

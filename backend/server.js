@@ -9,6 +9,7 @@ dotenv.config();
 
 // Connect to database
 connectDB();
+const allowedOrigins = ['http://localhost:5173'];
 
 const app = express();
 
